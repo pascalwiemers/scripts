@@ -1,4 +1,5 @@
 #!/bin/bash
+# @kde - Can be deployed to Dolphin/KDE service menu
 # Convert EXR → JPG. If no inputs, process all *.exr in current directory.
 # -folder → place converted JPGs into ./jpg/
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+# @kde - Can be deployed to Dolphin/KDE service menu
 # Converts EXR → TIFF using oiiotool
 # Usage:
 #   ./convert_exr_to_tiff.sh
