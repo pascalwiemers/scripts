@@ -8,6 +8,15 @@ set -euo pipefail
 PARALLEL_JOBS=""
 DEFAULT_FPS=25
 
+# Read global FPS config if available
+CONFIG_FILE="$HOME/.video_fps_config"
+if [ -f "$CONFIG_FILE" ]; then
+    config_fps=$(cat "$CONFIG_FILE" 2>/dev/null | grep -E '^[0-9]+(\.[0-9]+)?$' | head -n1)
+    if [ -n "$config_fps" ]; then
+        DEFAULT_FPS=$config_fps
+    fi
+fi
+
 echo "🟢  Starting EXR-to-MP4 script …"
 
 # ──────────────────────── 1. Check tools and args ─────────────────────────

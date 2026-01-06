@@ -3,8 +3,20 @@
 # Current directory where the PNG files are located
 input_dir="."
 
-# Frame rate
-fps=24
+# Frame rate - read from global config if available, otherwise use default
+CONFIG_FILE="$HOME/.video_fps_config"
+DEFAULT_FPS=24
+
+if [ -f "$CONFIG_FILE" ]; then
+    config_fps=$(cat "$CONFIG_FILE" 2>/dev/null | grep -E '^[0-9]+(\.[0-9]+)?$' | head -n1)
+    if [ -n "$config_fps" ]; then
+        fps=$config_fps
+    else
+        fps=$DEFAULT_FPS
+    fi
+else
+    fps=$DEFAULT_FPS
+fi
 
 # Find the first PNG file in the sequence in the current directory
 first_png=$(ls ${input_dir}/*.png | sort | head -n 1)
