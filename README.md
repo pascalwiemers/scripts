@@ -70,7 +70,12 @@ Scripts are grouped roughly by purpose. Most of them are self-contained shell ut
 - **grid_play.sh** – play multiple videos in a grid with `mpv`.
 - **trim.sh** – trim frames off start/end of a video.
 - **record.sh** – GPU desktop + webcam recorder with preview.
-- **hdri.sh** – generate HDRIs using DiffusionLight pipeline.
+
+### HDRI Tools
+
+- **process_hdri.sh** – generate HDRIs from a single image using DiffusionLight-Turbo (runs in Distrobox).
+- **hdri_diffusionLight.sh** – setup script for the `process_hdri.sh` environment (creates `hdri-box` container).
+- **hdri.sh** – legacy wrapper for the original DiffusionLight pipeline.
 
 ### GIFs and Watchers
 
