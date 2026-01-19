@@ -69,6 +69,10 @@ Scripts are grouped roughly by purpose. Most of them are self-contained shell ut
 - **grid3.sh / grid3_backup.sh** – make 3×3 grid videos from MP4s.
 - **grid_play.sh** – play multiple videos in a grid with `mpv`.
 - **trim.sh** – trim frames off start/end of a video.
+- **addblackframes.sh** – add black frames at the start and/or end of videos.  
+  By default adds 1 second of black at each end (based on video FPS).  
+  Options: `-start N`, `-end N`, `-nostart`, `-noend`.  
+  Example: `addblackframes.sh -start 5 -end 3 video.mp4`
 - **record.sh** – GPU desktop + webcam recorder with preview.
 
 ### HDRI Tools
