@@ -79,7 +79,7 @@ get_service_types() {
                 echo "image/x-exr" ;;
             
             # Video conversion scripts - only for video files
-            *mp4*|*mkv*|*mov*|*prores*|*webmp4*|*joinvideo*|*applyaudio*|*aratio*|*videomerge*|*noaudio*)
+            *mp4*|*mkv*|*mov*|*prores*|*webmp4*|*joinvideo*|*applyaudio*|*aratio*|*videomerge*|*noaudio*|*blackframes*)
                 echo "video/*" ;;
             
             # Video to image conversion
@@ -87,7 +87,7 @@ get_service_types() {
                 echo "video/*" ;;
             
             # Image conversion scripts - only for image files
-            *tojpg*|*webp*|*montage*|*extract*|*thumbnail*|*gif*|*hdri*)
+            *tojpg*|*webp*|*montage*|*extract*|*thumbnail*|*gif*|*hdri*|*pano*)
                 echo "image/*" ;;
             
             # PNG to MP4 (image sequence to video)
@@ -112,9 +112,9 @@ get_target_folder() {
         echo "$TARGET_BASE"
     else
         case "$name" in
-            *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*)
+            *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*|*blackframes*)
                 echo "$TARGET_BASE/video" ;;
-            *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*hdri*)
+            *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*hdri*|*pano*)
                 echo "$TARGET_BASE/image" ;;
             *project*|*folder*|*date*)
                 echo "$TARGET_BASE/project" ;;
@@ -408,6 +408,14 @@ find "$SOURCE_DIR" -type f -name "*.sh" | while read -r script; do
         script_copy="${target_dir}/${name}"
         cp "$script" "$script_copy"
         chmod +x "$script_copy"
+
+        # Copy associated config files (e.g., script_name_config.env or just .env)
+        # Check for ${name%.sh}_config.env
+        config_file="${script%.sh}_config.env"
+        if [ -f "$config_file" ]; then
+            cp "$config_file" "${target_dir}/"
+            echo "   (Copied config: $(basename "$config_file"))"
+        fi
         
         # Create .desktop file
         create_desktop_file "$script_copy" "$name" "$target_dir" "$service_types"
