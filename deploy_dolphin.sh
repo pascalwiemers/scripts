@@ -79,7 +79,7 @@ get_service_types() {
                 echo "image/x-exr" ;;
             
             # Video conversion scripts - only for video files
-            *mp4*|*mkv*|*mov*|*prores*|*webmp4*|*joinvideo*|*applyaudio*|*aratio*|*videomerge*|*noaudio*|*blackframes*)
+            *mp4*|*mkv*|*mov*|*prores*|*webmp4*|*joinvideo*|*applyaudio*|*aratio*|*videomerge*|*noaudio*|*blackframes*|*vid_cut*)
                 echo "video/*" ;;
             
             # Video to image conversion
@@ -112,7 +112,7 @@ get_target_folder() {
         echo "$TARGET_BASE"
     else
         case "$name" in
-            *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*|*blackframes*)
+            *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*|*blackframes*|*vid_cut*)
                 echo "$TARGET_BASE/video" ;;
             *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*hdri*|*pano*)
                 echo "$TARGET_BASE/image" ;;
@@ -174,7 +174,9 @@ create_desktop_file() {
     local service_types="$4"
     
     local display_name="${script_name%.sh}"
-    display_name=$(echo "$display_name" | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')
+    # display_name=$(echo "$display_name" | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')
+    # Use the script name as is (without .sh) to avoid spaces
+
     
     # Create unique action name based on script name (sanitized for desktop file)
     local action_name=$(echo "$script_name" | sed 's/[^a-zA-Z0-9]/_/g')

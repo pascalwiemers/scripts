@@ -1,16 +1,12 @@
-User
-# @kde - Can be deployed to Dolphin/KDE service menu
-User
 #!/bin/bash
-
-# Create the output directory if it doesn't already exist
-mkdir -p mp4_web
+# @kde - Can be deployed to Dolphin/KDE service menu
 
 # Function to process a single video file
 convert_video() {
     local file=$1
     local smaller=$2
     local filename=$(basename "$file")
+    local dir=$(dirname "$file")
     local extension="${filename##*.}"
     local filename_without_ext="${filename%.*}"
 
@@ -19,7 +15,7 @@ convert_video() {
     if [ "$smaller" == "true" ]; then
         suffix="_web_small"
     fi
-    local output="mp4_web/${filename_without_ext}${suffix}.mp4"
+    local output="${dir}/${filename_without_ext}${suffix}.mp4"
 
     # Set default FFmpeg parameters
     local codec="-vcodec libx264"
