@@ -2,26 +2,61 @@
 
 A collection of small scripts used to speed up everyday CG/VFX work on Linux. They cover video conversion, EXR sequence processing, file management and various utility tasks.
 
-## Requirements
+## Dependencies
 
-- [ffmpeg](https://www.ffmpeg.org/)
-- [ImageMagick](https://imagemagick.org/index.php)
-- [GNU parallel](https://www.gnu.org/software/parallel/)
-- [OpenImageIO tools](https://github.com/OpenImageIO/oiio)
-- OCIO environment variables
+### Quick Start
 
-### Installation
-
-For Rocky Linux / RHEL, install the dependencies via:
+Run the installer on Rocky Linux / RHEL / AlmaLinux:
 
 ```bash
-sudo dnf install epel-release
-sudo dnf install https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm \
-                 https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm
-sudo dnf install ffmpeg ImageMagick parallel OpenImageIO-utils
+bash install/setup_deps.sh
 ```
 
-Set the OCIO environment variable according to your colour configuration.
+It covers repositories, packages, and gives you an interactive choice for the OIIO/OCIO stack (see below).
+
+### Required
+
+| Package | Used by | Install |
+|---------|---------|---------|
+| [ffmpeg](https://www.ffmpeg.org/) | All video scripts | `dnf install ffmpeg` (RPM Fusion) |
+| [ImageMagick](https://imagemagick.org/) | Image conversion, montages | `dnf install ImageMagick` |
+| [GNU parallel](https://www.gnu.org/software/parallel/) | EXR batch processing | `dnf install parallel` |
+| python3 + tkinter | batchexrtomp4.py | `dnf install python3 python3-tkinter` |
+
+### Required for EXR / Color Workflows
+
+The EXR scripts (`exrtomp4.sh`, `exrtoprores*.sh`, `exrtojpg.sh`, `exrtotiff.sh`, `exrmerge.sh`, montages) need **oiiotool** with a working **OCIO** (ACES 1.2) config. There are three ways to get this on Rocky:
+
+| Strategy | Pros | Cons |
+|----------|------|------|
+| **System packages** (`dnf install OpenImageIO-utils`) | Simplest, no extra deps | Older version (2.4.x), may need manual OCIO setup |
+| **Distrobox container** (Ubuntu `oiio-box`) | Newer oiiotool, isolated, no commercial dependency | Requires distrobox + podman |
+| **Houdini** (`hoiiotool` wrapper) | Newest version (2.5.x), self-contained OCIO | Requires Houdini install ($$$) |
+
+`install/setup_deps.sh` lets you pick interactively. To set up just the distrobox container independently:
+
+```bash
+bash install/setup_oiio_container.sh
+```
+
+All three strategies ensure `OCIO` is set in `~/.bashrc` and `~/bin/oiiotool` is on your PATH.
+
+### Optional
+
+| Package | Used by | Install |
+|---------|---------|---------|
+| mpv | Grid playback (`grid_play.sh`) | `dnf install mpv` |
+| dolphin, kdialog, konsole | KDE desktop integration scripts | `dnf install dolphin kdialog konsole` |
+| libnotify | Desktop notifications | `dnf install libnotify` |
+| xclip | Clipboard scripts | `dnf install xclip` |
+| sox | Audio processing | `dnf install sox` |
+| tmux, btop, nvtop | Monitor scripts (`monitor.sh`) | `dnf install tmux btop nvtop` |
+| rsync | `syncblender.sh` | `dnf install rsync` |
+| inotify-tools | Watch scripts | `dnf install inotify-tools` |
+| unrtf | `rft_to_txt.sh` | `dnf install unrtf` |
+| jq | JSON processing | `dnf install jq` |
+| distrobox | `process_hdri.sh`, `process_pano.sh`, oiio-box | `dnf install distrobox` |
+| Whisper | `videototxt.sh`, `transcribe.sh` | pip install (separate) |
 
 ## Script Overview
 

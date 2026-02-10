@@ -79,13 +79,17 @@ get_service_types() {
                 echo "image/x-exr" ;;
             
             # Video conversion scripts - only for video files
-            *mp4*|*mkv*|*mov*|*prores*|*webmp4*|*joinvideo*|*applyaudio*|*aratio*|*videomerge*|*noaudio*|*blackframes*|*vid_cut*)
+            *mp4*|*mkv*|*mov*|*prores*|*webmp4*|*joinvideo*|*applyaudio*|*aratio*|*videomerge*|*noaudio*|*blackframes*|*vid_cut*|*bake_audio*)
                 echo "video/*" ;;
             
             # Video to image conversion
             *videotojpg*|*videotopng*|*mp4topng*)
                 echo "video/*" ;;
             
+            # PDF conversion scripts - only for PDF files
+            *pdftojpg*)
+                echo "application/pdf" ;;
+
             # Image conversion scripts - only for image files
             *tojpg*|*webp*|*montage*|*extract*|*thumbnail*|*gif*|*hdri*|*pano*)
                 echo "image/*" ;;
@@ -112,9 +116,9 @@ get_target_folder() {
         echo "$TARGET_BASE"
     else
         case "$name" in
-            *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*|*blackframes*|*vid_cut*)
+            *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*|*blackframes*|*vid_cut*|*bake_audio*)
                 echo "$TARGET_BASE/video" ;;
-            *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*hdri*|*pano*)
+            *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*pdftojpg*|*hdri*|*pano*)
                 echo "$TARGET_BASE/image" ;;
             *project*|*folder*|*date*)
                 echo "$TARGET_BASE/project" ;;
@@ -149,6 +153,10 @@ get_mime_type_patterns() {
             ;;
         *mov*|*prores*)
             echo "MimeType=video/quicktime;"
+            ;;
+        # PDF format
+        *pdf*)
+            echo "MimeType=application/pdf;"
             ;;
         # Image formats
         *tojpg*|*jpg*)
