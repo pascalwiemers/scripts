@@ -1,0 +1,363 @@
+================================================================================
+                    CODEBASE ANALYSIS & REFACTORING REPORT
+                         /home/mini2/scripts
+================================================================================
+
+
+1. NEAR-IDENTICAL SCRIPTS (highest impact)
+================================================================================
+
+1a. exrtoprores422.sh vs exrtoprores444.sh
+--------------------------------------------------------------------------
+These two files are ~95% identical (163 lines each). The ONLY differences are:
+
+  - Line 148: output suffix "_prores422" vs "_prores444"
+  - Line 153: ffmpeg flags  "-profile:v 2 -pix_fmt yuv422p10le"
+                         vs  "-profile:v 4 -pix_fmt yuv444p10le"
+
+Everything else -- FPS config loading, argument parsing, EXR discovery,
+metadata extraction (40+ lines of identical grep/awk), PNG conversion with
+metadata overlay, file list assembly, and cleanup -- is copied verbatim.
+
+Suggestion: Merge into a single exrtoprores.sh that accepts a -profile flag
+(422 or 444), defaulting to 422. A 3-line lookup table maps the profile name
+to the ffmpeg -profile:v and -pix_fmt values. No functionality changes.
+
+
+1b. exrtoprores422.sh / exrtoprores444.sh vs exrtomp4.sh
+--------------------------------------------------------------------------
+exrtomp4.sh shares ~80% of its code with the ProRes scripts. The shared parts:
+
+  - FPS config loading (identical 6-line block)
+  - Argument parsing loop (identical structure, same flags)
+  - EXR discovery + resolution detection (identical)
+  - Metadata extraction (identical 30+ line parallel block)
+  - Total render time calculation (identical)
+  - Metadata text overlay in oiiotool (identical 10-line block)
+  - Temp workspace create/cleanup (identical pattern)
+
+The only real differences are:
+  - Intermediate format: JPG (mp4) vs PNG (prores)
+  - Final ffmpeg encode line (libx264 vs prores_ks)
+
+Suggestion: Extract the shared logic into a sourced library file (e.g.
+lib/exr_common.sh) containing functions for:
+  - load_fps_config()
+  - parse_exr_args()
+  - discover_exrs()
+  - extract_metadata()
+  - convert_exrs_to_intermediate()  # parameterized format
+Each script becomes a thin wrapper (~20 lines) that sources the library
+and calls the appropriate encode step.
+
+
+1c. exrtojpg.sh vs exrtopng.sh vs exrtotiff.sh
+--------------------------------------------------------------------------
+These three scripts do the same thing with different output formats.
+The only differences are:
+  - Output extension: .jpg / .png / .tiff
+  - Output folder name: jpg/ / png/ / tiff/
+
+The core logic is identical: parse -folder flag, discover EXRs, run
+oiiotool with --colorconvert "role_scene_linear" "out_srgb".
+
+Note: exrtojpg.sh has a slightly different structure (uses a function +
+for loop vs direct for loop, uses set -- instead of an array, lacks
+shopt -s nullglob). The PNG and TIFF versions are line-for-line identical
+except for the extension/folder strings.
+
+Suggestion: Merge into a single exrconvert.sh that takes the format as
+the first argument: `exrconvert.sh jpg`, `exrconvert.sh png -folder`.
+Three symlinks (exrtojpg, exrtopng, exrtotiff) could preserve the
+existing CLI interface if desired.
+
+
+1d. gif.sh vs gif_small.sh
+--------------------------------------------------------------------------
+These two files are structurally identical. Differences:
+  - FPS: 15 vs 24
+  - Scale divisor: iw/2 vs iw/4 (half vs quarter resolution)
+  - gif_small uses palettegen=max_colors=64
+
+Both duplicate the ffmpeg commands in both the if and else branches
+(files-as-args vs all-files-in-dir).
+
+Suggestion: Merge into one gif.sh with a -small flag, or accept -fps
+and -scale parameters. Also extract the per-file processing into a
+function to eliminate the duplicated if/else branches.
+
+
+1e. mp4.sh vs mp4hq.sh
+--------------------------------------------------------------------------
+These are identical except for the ffmpeg encode flags:
+  - mp4.sh:   libx264, default CRF (23), no preset
+  - mp4hq.sh: libx264, CRF 18, preset slow
+
+Both also duplicate the ffmpeg command in both the if/else branches.
+
+Suggestion: Merge into mp4.sh with a -hq flag, or accept -crf and
+-preset parameters.
+
+
+1f. webmp4.sh vs webmp4_smaller.sh
+--------------------------------------------------------------------------
+webmp4.sh already handles both modes via a -smaller flag internally.
+webmp4_smaller.sh is a standalone copy that hardcodes the "smaller"
+settings (preset superfast, CRF 28).
+
+Suggestion: webmp4_smaller.sh can be deleted entirely since webmp4.sh
+already supports `webmp4.sh -smaller`. If a separate command is desired,
+make webmp4_smaller.sh a one-line wrapper:
+  exec "$(dirname "$0")/webmp4.sh" -smaller "$@"
+
+
+2. DUPLICATED PATTERNS WITHIN SCRIPTS
+================================================================================
+
+2a. if/else argument handling (affects ~10 scripts)
+--------------------------------------------------------------------------
+Many scripts duplicate their entire processing loop:
+
+    if [ "$#" -gt 0 ]; then
+        for i in "$@"; do
+            <exact same ffmpeg command>
+        done
+    else
+        for i in *.*; do
+            <exact same ffmpeg command>
+        done
+    fi
+
+Affected scripts: mp4.sh, mp4hq.sh, gif.sh, gif_small.sh, prores422hq.sh,
+prores444.sh, and others.
+
+Suggestion: Consolidate with a single pattern at the top:
+
+    if [ "$#" -eq 0 ]; then set -- *.*; fi
+    for i in "$@"; do ...
+
+This eliminates the duplicated loop body in every affected script.
+
+
+2b. FPS config loading block (affects 5 scripts)
+--------------------------------------------------------------------------
+The following identical 6-line block appears in:
+  - exrtomp4.sh
+  - exrtoprores422.sh
+  - exrtoprores444.sh
+  - exrtomp4_dailies.sh (from the explore)
+  - pngtomp4.sh (from the explore)
+
+    CONFIG_FILE="$HOME/.video_fps_config"
+    if [ -f "$CONFIG_FILE" ]; then
+        config_fps=$(cat "$CONFIG_FILE" 2>/dev/null | grep -E ... | head -n1)
+        if [ -n "$config_fps" ]; then DEFAULT_FPS=$config_fps; fi
+    fi
+
+Suggestion: Move to a sourceable lib/fps_config.sh:
+    # lib/fps_config.sh
+    DEFAULT_FPS=${DEFAULT_FPS:-25}
+    _cfg="$HOME/.video_fps_config"
+    [[ -f "$_cfg" ]] && {
+        _v=$(grep -E '^[0-9]+(\.[0-9]+)?$' "$_cfg" | head -1)
+        [[ -n "$_v" ]] && DEFAULT_FPS=$_v
+    }
+
+Then each script just does: source "$(dirname "$0")/../lib/fps_config.sh"
+
+
+2c. Metadata extraction block (affects 3 scripts)
+--------------------------------------------------------------------------
+The 30-line parallel metadata extraction block (oiiotool -info -v, grep
+for frame/fps/software/host/datetime/mem/comp/colorspace/renderTime/
+gpu/cpu) is copy-pasted identically across exrtomp4.sh, exrtoprores422.sh,
+and exrtoprores444.sh.
+
+Suggestion: Extract to lib/exr_metadata.sh as a function that writes
+metadata.txt and sets total_rt_hms.
+
+
+3. SCRIPTS THAT COULD BE SIMPLIFIED
+================================================================================
+
+3a. trim.sh - eval with string-built command
+--------------------------------------------------------------------------
+trim.sh builds an ffmpeg command as a string and runs it with `eval`.
+This is fragile (quoting issues with filenames containing spaces or
+special characters) and harder to debug.
+
+Suggestion: Build the command as an array instead:
+
+    cmd=(ffmpeg -i "$file")
+    (( start_trim > 0 )) && cmd+=(-vf "select=gte(n\,$start_trim)")
+    ...
+    cmd+=("$output")
+    "${cmd[@]}"
+
+Also, the usage message at line 69-72 is unreachable -- when $# is 0,
+the while loop simply doesn't execute and falls through to the check,
+but by that point $# is still 0 from the original invocation. The
+argument parsing consumes all args via shift, so this works, but the
+logic flow is confusing.
+
+
+3b. prores422hq.sh - no argument handling
+--------------------------------------------------------------------------
+This script has no argument handling at all -- it always processes *.*
+in the current directory. Unlike most other scripts, it doesn't support
+passing specific files. Also uses `mkdir` without -p (will fail if dir
+exists in some edge cases, though mkdir on existing dir is fine on Linux).
+
+Suggestion: Add the standard `if [ "$#" -gt 0 ]; then ... else ...`
+pattern (or the simplified `set --` pattern from 2a).
+
+
+3c. smp4.sh - no directory handling, no batch mode
+--------------------------------------------------------------------------
+Unlike its siblings (mp4.sh, mp4hq.sh), smp4.sh doesn't create an output
+directory and doesn't handle the no-arguments case. It outputs to the
+current directory with a _small suffix.
+
+Suggestion: Align with the mp4.sh pattern for consistency. Consider
+whether smp4.sh is even needed given that mp4.sh with configurable CRF
+would cover this use case.
+
+
+3d. noaudio.sh - single file only
+--------------------------------------------------------------------------
+Unlike most other scripts, noaudio.sh only handles a single file.
+Every other conversion script handles batch processing.
+
+Suggestion: Wrap in a for loop over "$@" for consistency.
+
+
+4. INCONSISTENCIES ACROSS THE CODEBASE
+================================================================================
+
+4a. Shebang lines
+--------------------------------------------------------------------------
+Most scripts use: #!/bin/bash
+Three scripts use: #!/usr/bin/env bash (exrtomp4.sh, exrtoprores422.sh,
+exrtoprores444.sh)
+
+Not a functional issue, but inconsistent. #!/usr/bin/env bash is more
+portable.
+
+
+4b. Color space names
+--------------------------------------------------------------------------
+Two different ACES color space naming conventions are used:
+
+  - exrtojpg/png/tiff.sh use:
+      --colorconvert "role_scene_linear" "out_srgb"
+
+  - exrtomp4.sh and exrtoprores*.sh use:
+      --colorconvert "ACES - ACEScg" "Output - sRGB"
+
+These likely resolve to the same transform depending on the OCIO config,
+but using different names is confusing and could break if the OCIO config
+changes. One set of scripts would fail while the other works.
+
+Suggestion: Standardize on one naming convention. The role-based names
+(role_scene_linear, out_srgb) are more portable across OCIO configs.
+Consider defining them as variables in a shared config.
+
+
+4c. Error handling inconsistency
+--------------------------------------------------------------------------
+  - exrtomp4.sh and exrtoprores*.sh use: set -euo pipefail (strict)
+  - Most other scripts have no error handling at all
+  - Some scripts use `exit` at the end, others don't
+
+Suggestion: Add `set -euo pipefail` to all scripts for robustness.
+At minimum, scripts that do destructive operations (rm -rf, overwriting
+files) should have error checking.
+
+
+4d. Output directory patterns
+--------------------------------------------------------------------------
+  - mp4.sh/mp4hq.sh: output to ./mp4/ subdirectory
+  - webmp4.sh: output to same directory with _web suffix
+  - smp4.sh: output to same directory with _small suffix
+  - prores422hq.sh: output to ./prores422hq/ subdirectory
+  - gif.sh: output to ./gif/ subdirectory
+
+No consistency in whether output goes to a subdirectory or stays in place.
+
+
+5. POTENTIAL BUGS & ROBUSTNESS ISSUES
+================================================================================
+
+5a. prores422hq.sh processes *.*
+--------------------------------------------------------------------------
+`for i in *.*` will match ANY file with an extension, including images,
+text files, PDFs, etc. ffmpeg will error on non-video files but will
+still attempt them. Other scripts like webmp4.sh use `file --mime-type`
+to filter for video files, which is safer.
+
+
+5b. gif.sh palette cleanup on failure
+--------------------------------------------------------------------------
+If the second ffmpeg command fails, the palette temp file in /tmp is
+not cleaned up. Using a trap would be more robust:
+    trap 'rm -f "$palette"' EXIT
+
+
+5c. Glob patterns without nullglob
+--------------------------------------------------------------------------
+mp4.sh, mp4hq.sh, prores422hq.sh, and gif.sh iterate over *.* without
+`shopt -s nullglob`. If no files match, the literal string "*.*" is
+passed to ffmpeg, which will produce confusing errors.
+
+
+5d. trim.sh unreachable usage message
+--------------------------------------------------------------------------
+As noted in 3a, the usage message at lines 69-72 is unreachable because
+the while loop consumes all positional parameters via shift. After the
+loop, $# is always 0, but the `if [ $# -eq 0 ]` check compares the
+remaining args (always 0), not the original count.
+
+
+6. LOW-PRIORITY / NICE-TO-HAVE
+================================================================================
+
+6a. mergeprores.sh vs mergeprores2.sh
+--------------------------------------------------------------------------
+mergeprores.sh is a simple 10-line auto-discovery script (finds
+*_left.mov and matches *_right.mov). mergeprores2.sh is a more robust
+version with argument validation, _l/_r support, and error handling.
+mergeprores.sh appears to be the original version superseded by
+mergeprores2.sh.
+
+Suggestion: If mergeprores2.sh fully covers mergeprores.sh's use case,
+consider removing the older version.
+
+
+6b. Shared ffmpeg scale filter
+--------------------------------------------------------------------------
+The scale filter "scale=trunc(iw/2)*2:trunc(ih/2)*2" (ensures even
+dimensions) appears in mp4.sh, mp4hq.sh, gif.sh, and gif_small.sh.
+Minor, but could be a variable if these were consolidated.
+
+
+================================================================================
+                              SUMMARY
+================================================================================
+
+HIGHEST IMPACT CHANGES (most code reduction, least risk):
+  1. Merge exrtoprores422.sh + exrtoprores444.sh    (~150 lines saved)
+  2. Merge exrtojpg.sh + exrtopng.sh + exrtotiff.sh (~80 lines saved)
+  3. Delete webmp4_smaller.sh (already covered)      (~45 lines saved)
+  4. Merge gif.sh + gif_small.sh                     (~25 lines saved)
+  5. Merge mp4.sh + mp4hq.sh                         (~15 lines saved)
+
+MEDIUM IMPACT (improves maintainability):
+  6. Extract shared FPS config loading to lib/
+  7. Extract shared metadata extraction to lib/
+  8. Standardize the argument handling pattern (set -- if no args)
+
+LOW RISK FIXES (bug prevention):
+  9. Add nullglob to scripts that glob without it
+  10. Replace eval in trim.sh with array-based command
+  11. Add set -euo pipefail consistently
+  12. Standardize color space naming convention
