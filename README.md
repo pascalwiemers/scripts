@@ -21,6 +21,7 @@ It covers repositories, packages, and gives you an interactive choice for the OI
 | [ffmpeg](https://www.ffmpeg.org/) | All video scripts | `dnf install ffmpeg` (RPM Fusion) |
 | [ImageMagick](https://imagemagick.org/) | Image conversion, montages | `dnf install ImageMagick` |
 | [GNU parallel](https://www.gnu.org/software/parallel/) | EXR batch processing | `dnf install parallel` |
+| [poppler-utils](https://poppler.freedesktop.org/) | `pdftojpg.sh` | `dnf install poppler-utils` |
 | python3 + tkinter | batchexrtomp4.py | `dnf install python3 python3-tkinter` |
 
 ### Required for EXR / Color Workflows
@@ -91,6 +92,7 @@ Scripts are grouped roughly by purpose. Most of them are self-contained shell ut
 - **exrtojpg.sh** – convert a single EXR to JPG.
 - **exrtotiff.sh** – convert a single EXR to TIFF.
 - **exrtotiff_ProPhotoRGB.sh** – make a ProPhoto RGB TIFF from EXR.
+- **pdftojpg.sh** – convert PDF pages to 300 DPI JPG images (output to `pdftojpg/` subfolder).
 - **extractstills.sh / autocut.sh** – grab stills based on sensitivity.
 - **extractallstills.sh** – run `extractstills.sh` across folders.
 - **pngtomp4.sh** – convert PNG sequence to MP4.
