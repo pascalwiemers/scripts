@@ -43,7 +43,7 @@ shopt -s nullglob
 exrs=( *.exr )
 (( ${#exrs[@]} )) || { echo "No EXR files found. Exiting."; exit 1; }
 
-first_exr=$(printf '%s\n' "${exrs[@]}" | sort -V | head -n1)
+first_exr="${exrs[0]}"
 if [ -z "${res-}" ]; then
   res=$(identify -format "%wx%h" "$first_exr")
 fi
