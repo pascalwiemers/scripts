@@ -91,7 +91,7 @@ get_service_types() {
                 echo "application/pdf" ;;
 
             # Image conversion scripts - only for image files
-            *tojpg*|*webp*|*montage*|*extract*|*thumbnail*|*gif*|*hdri*|*pano*)
+            *tojpg*|*webp*|*montage*|*extract*|*thumbnail*|*gif*|*hdri*|*pano*|*tagname*)
                 echo "image/*" ;;
             
             # PNG to MP4 (image sequence to video)
@@ -118,7 +118,7 @@ get_target_folder() {
         case "$name" in
             *applyaudio*|*mp4*|*webmp4*|*joinvideo*|*mkv*|*prores*|*aratio*|*exrtomp4*|*exrtoprores*|*blackframes*|*vid_cut*|*bake_audio*)
                 echo "$TARGET_BASE/video" ;;
-            *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*pdftojpg*|*hdri*|*pano*)
+            *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*pdftojpg*|*hdri*|*pano*|*tagname*)
                 echo "$TARGET_BASE/image" ;;
             *project*|*folder*|*date*)
                 echo "$TARGET_BASE/project" ;;
