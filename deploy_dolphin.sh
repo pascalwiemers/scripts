@@ -329,6 +329,11 @@ WRAPPER_EOF
         fi
     else
         # Scripts that work on selected files
+        # Determine extra flags (e.g. -folder for exr conversion scripts)
+        local extra_flags=""
+        case "$script_name" in
+            exrtojpg.sh|exrtopng.sh|exrtotiff.sh) extra_flags="-folder" ;;
+        esac
         cat > "$wrapper_script" <<WRAPPER_EOF
 #!/bin/bash
 FILES=()
@@ -340,7 +345,7 @@ for url in "\$@"; do
 done
 if [ \${#FILES[@]} -gt 0 ]; then
     DIR="\$(dirname "\${FILES[0]}")"
-    cd "\$DIR" && "$script_path" "\${FILES[@]}" >/dev/null 2>&1 &
+    cd "\$DIR" && "$script_path" $extra_flags "\${FILES[@]}" >/dev/null 2>&1 &
 else
     notify-send "Error" "No files selected" 2>/dev/null || true
 fi

@@ -33,23 +33,26 @@ if [ $USE_FOLDER -eq 1 ]; then
     mkdir -p png
 fi
 
-# Convert
-for INPUT in "${FILES[@]}"; do
-    [[ ! -f "$INPUT" ]] && echo "Skipping '$INPUT' (not a file)" && continue
-    [[ ! "$INPUT" =~ \.exr$ ]] && echo "Skipping '$INPUT' (not an .exr file)" && continue
+# Convert in parallel
+JOBS="${JOBS:-$(nproc)}"
+export USE_FOLDER
+
+printf '%s\0' "${FILES[@]}" | \
+xargs -0 -n 1 -P "$JOBS" bash -c '
+    INPUT="$1"
+    [[ ! -f "$INPUT" ]] && echo "Skipping '\''$INPUT'\'' (not a file)" && exit 0
+    [[ ! "$INPUT" =~ \.exr$ ]] && echo "Skipping '\''$INPUT'\'' (not an .exr file)" && exit 0
 
     OUTPUT="${INPUT%.exr}.png"
-    if [ $USE_FOLDER -eq 1 ]; then
+    if [ "$USE_FOLDER" -eq 1 ]; then
         OUTPUT="png/$(basename "$OUTPUT")"
     fi
 
-    echo "Converting '$INPUT' → '$OUTPUT' ..."
-    oiiotool "$INPUT" --colorconvert "role_scene_linear" "out_srgb" -o "$OUTPUT"
-
-    if [ $? -eq 0 ]; then
+    echo "Converting $INPUT → $OUTPUT ..."
+    if oiiotool "$INPUT" --colorconvert "role_scene_linear" "out_srgb" -o "$OUTPUT"; then
         echo "✅ $INPUT"
     else
-        echo "❌ Error converting '$INPUT'"
+        echo "❌ Error converting $INPUT"
     fi
-done
+' _
 

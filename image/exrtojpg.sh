@@ -27,25 +27,26 @@ if [ $USE_FOLDER -eq 1 ]; then
     mkdir -p jpg
 fi
 
-convert_file() {
-    local INPUT="$1"
-    [[ ! -f "$INPUT" ]] && echo "Missing: $INPUT" && return 1
-    [[ ! "$INPUT" =~ \.exr$ ]] && echo "Skip: $INPUT" && return 0
+# Convert in parallel
+JOBS="${JOBS:-$(nproc)}"
+export USE_FOLDER
 
-    local OUT="${INPUT%.exr}.jpg"
+printf '%s\0' "$@" | \
+xargs -0 -n 1 -P "$JOBS" bash -c '
+    INPUT="$1"
+    [[ ! -f "$INPUT" ]] && echo "Missing: $INPUT" && exit 1
+    [[ ! "$INPUT" =~ \.exr$ ]] && echo "Skip: $INPUT" && exit 0
 
-    if [ $USE_FOLDER -eq 1 ]; then
+    OUT="${INPUT%.exr}.jpg"
+    if [ "$USE_FOLDER" -eq 1 ]; then
         OUT="jpg/$(basename "$OUT")"
     fi
 
-    oiiotool "$INPUT" --colorconvert "role_scene_linear" "out_srgb" -o "$OUT"
-    [[ $? -eq 0 ]] && echo "$INPUT → $OUT" || echo "Error on $INPUT"
-}
-
-EXIT=0
-for f in "$@"; do
-    convert_file "$f" || EXIT=1
-done
-
-exit $EXIT
+    if oiiotool "$INPUT" --colorconvert "role_scene_linear" "out_srgb" -o "$OUT"; then
+        echo "$INPUT → $OUT"
+    else
+        echo "Error on $INPUT"
+        exit 1
+    fi
+' _
 
