@@ -35,7 +35,7 @@ script_works_on_directory() {
     # Scripts that process all files in directory (like exrtomp4.sh, dailies.sh)
     # Note: imagepack.sh works on both directories and files, handled specially
     case "$name" in
-        *exrtomp4*|*exrtoprores*|*dailies*|*folder*|*project*)
+        *exrtomp4*|*exrtoprores*|*dailies*|*folder*|*project*|*collection*)
             return 0 ;;
         *)
             return 1 ;;
@@ -61,7 +61,7 @@ get_service_types() {
     # Directory-based scripts
     if script_works_on_directory "$name"; then
         case "$name" in
-            *folder*|*project*)
+            *folder*|*project*|*collection*)
                 echo "inode/directory" ;;
             *exr*|*dailies*)
                 # EXR scripts work on directories containing EXR files
@@ -120,7 +120,7 @@ get_target_folder() {
                 echo "$TARGET_BASE/video" ;;
             *exrtojpg*|*exrtotiff*|*exrtopng*|*merge*|*extract*|*archive*|*montage*|*image*|*webp*|*tojpg*|*pdftojpg*|*hdri*|*pano*|*tagname*)
                 echo "$TARGET_BASE/image" ;;
-            *project*|*folder*|*date*)
+            *project*|*folder*|*date*|*collection*)
                 echo "$TARGET_BASE/project" ;;
             *)
                 echo "$TARGET_BASE/misc" ;;
@@ -247,6 +247,29 @@ if [ \${#FILES[@]} -gt 0 ]; then
     "$script_path" "\${FILES[@]}" >/dev/null 2>&1 &
 else
     notify-send "Error" "No valid files or directories selected" 2>/dev/null || true
+fi
+WRAPPER_EOF
+        exec_line="bash \"$wrapper_script\" %U"
+    elif [[ "$script_name" == *collection* ]]; then
+        cat > "$wrapper_script" <<WRAPPER_EOF
+#!/bin/bash
+DIRS=()
+for url in "\$@"; do
+    path="\$url"
+    path="\${path#file://}"
+    path="\${path//%20/ }"
+    if [ -d "\$path" ]; then
+        DIRS+=("\$path")
+    fi
+done
+if [ \${#DIRS[@]} -gt 0 ]; then
+    if output="\$("$script_path" "\${DIRS[@]}" 2>&1)"; then
+        notify-send "Collection created" "\$output" 2>/dev/null || true
+    else
+        notify-send "Collection failed" "\$output" 2>/dev/null || true
+    fi
+else
+    notify-send "Error" "No valid folders selected" 2>/dev/null || true
 fi
 WRAPPER_EOF
         exec_line="bash \"$wrapper_script\" %U"
