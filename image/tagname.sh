@@ -15,6 +15,9 @@ if [ $# -eq 0 ]; then
 fi
 
 EXIT=0
+JOBS="${JOBS:-$(nproc)}"
+FAIL_FILE=$(mktemp)
+trap 'rm -f "$FAIL_FILE"' EXIT
 
 tag_file() {
     local INPUT="$1"
@@ -62,7 +65,12 @@ tag_file() {
 }
 
 for f in "$@"; do
-    tag_file "$f" || EXIT=1
+    ( tag_file "$f" || echo 1 >> "$FAIL_FILE" ) &
+    while (( $(jobs -rp | wc -l) >= JOBS )); do
+        wait -n 2>/dev/null || break
+    done
 done
+wait
 
+[ -s "$FAIL_FILE" ] && EXIT=1
 exit $EXIT
