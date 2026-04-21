@@ -1,0 +1,9 @@
+{
+  "name": "make-psd",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "ag-psd": "^28.0.0",
+    "@napi-rs/canvas": "^0.1.56"
+  }
+}
