@@ -37,12 +37,13 @@ tag_file() {
     mkdir -p "$DIR/tagged"
     local OUT="$DIR/tagged/$BASE"
 
-    # Get image width to scale font size (~3% of width, min 12px)
+    # Get image width to scale font size (~1.5% of width, min 6px)
     local WIDTH=$(identify -format "%w" "$INPUT" 2>/dev/null)
-    local POINTSIZE=$(( WIDTH * 3 / 100 ))
-    [ "$POINTSIZE" -lt 12 ] && POINTSIZE=12
+    local POINTSIZE=$(( WIDTH * 15 / 1000 ))
+    [ "$POINTSIZE" -lt 6 ] && POINTSIZE=6
 
-    local PAD=$POINTSIZE
+    local PAD=$(( POINTSIZE / 3 ))
+    [ "$PAD" -lt 2 ] && PAD=2
     local SW=$(( POINTSIZE / 12 ))
     [ "$SW" -lt 1 ] && SW=1
 
