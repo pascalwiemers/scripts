@@ -29,19 +29,6 @@ check_sequence_exists() {
     fi
 }
 
-# Function to find video player
-find_video_player() {
-    if command -v mpv &> /dev/null; then
-        echo "mpv"
-    elif command -v vlc &> /dev/null; then
-        echo "vlc"
-    elif command -v celluloid &> /dev/null; then
-        echo "celluloid"
-    else
-        echo ""
-    fi
-}
-
 # Function to find file manager
 find_file_manager() {
     if command -v dolphin &> /dev/null; then
@@ -59,20 +46,19 @@ find_file_manager() {
 
 # Check if path is an image sequence
 if [[ "$path" =~ \.(#+|[0-9]{4})\.(exr|png|jpg|jpeg|tif|tiff|dpx)$ ]] && check_sequence_exists "$path"; then
-    if [ -f "/opt/djv/bin/djv" ]; then
-        /opt/djv/bin/djv "$path"  # Open image sequences with DJV
+    if command -v justview &> /dev/null; then
+        justview "$path"  # Open image sequences with justview
     else
-        notify-send "Error" "DJV viewer not found at /opt/djv/bin/djv"
+        notify-send "Error" "justview not found in PATH"
     fi
 # Check if path exists and is a file or directory
 elif [ -e "$path" ]; then
     # If it's a file and has a video extension
     if [ -f "$path" ] && [[ "$path" =~ \.(mp4|mkv|avi|mov|wmv|flv|webm)$ ]]; then
-        video_player=$(find_video_player)
-        if [ -n "$video_player" ]; then
-            $video_player "$path"  # Open video files
+        if command -v justview &> /dev/null; then
+            justview "$path"  # Open video files with justview
         else
-            notify-send "Error" "No video player found. Please install mpv or vlc."
+            notify-send "Error" "justview not found in PATH"
         fi
     # If it's a directory or other file
     elif [ -d "$path" ] || [ -f "$path" ]; then
