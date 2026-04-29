@@ -35,7 +35,7 @@ script_works_on_directory() {
     # Scripts that process all files in directory (like exrtomp4.sh, dailies.sh)
     # Note: imagepack.sh works on both directories and files, handled specially
     case "$name" in
-        *exrtomp4*|*exrtoprores*|*dailies*|*folder*|*project*|*collection*)
+        *exrtomp4*|*exrtoprores*|*dailies*|*folder*|*project*|*collection*|*offset_frames*)
             return 0 ;;
         *)
             return 1 ;;
@@ -305,8 +305,58 @@ fi
 WRAPPER_EOF
             exec_line="bash \"$wrapper_script\" \"%U\""
         elif [[ "$service_types" == "inode/directory" ]]; then
-            # Check if script name suggests it takes directory argument (like dailies.sh)
-            if [[ "$script_name" == *dailies* ]]; then
+            if [[ "$script_name" == *offset_frames* ]]; then
+                cat > "$wrapper_script" <<WRAPPER_EOF
+#!/bin/bash
+DIRS=()
+for arg in "\$@"; do
+    p="\${arg#file://}"
+    p="\${p//%20/ }"
+    if [ -d "\$p" ]; then
+        DIRS+=("\$p")
+    fi
+done
+if [ \${#DIRS[@]} -eq 0 ]; then
+    notify-send "offset_frames" "No valid directories selected" 2>/dev/null || true
+    exit 1
+fi
+START=\$(kdialog --title "offset_frames" --inputbox "Target start frame (applied to each folder):" "1" 2>/dev/null)
+[ -z "\$START" ] && exit 0
+OUTPUT=\$(OFFSET_FRAMES_YES=1 "$script_path" "\${DIRS[@]}" "\$START" 2>&1)
+RC=\$?
+if [ \$RC -eq 0 ]; then
+    notify-send "offset_frames done" "\$OUTPUT" 2>/dev/null || true
+else
+    kdialog --title "offset_frames failed" --error "\$OUTPUT" 2>/dev/null || true
+fi
+WRAPPER_EOF
+                exec_line="bash \"$wrapper_script\" %F"
+            elif [[ "$script_name" == *exrtoprores* ]]; then
+                # Multi-folder aware: each selected folder treated as own sequence,
+                # MOV files placed in the parent (current) directory.
+                cat > "$wrapper_script" <<WRAPPER_EOF
+#!/bin/bash
+DIRS=()
+for arg in "\$@"; do
+    p="\${arg#file://}"
+    p="\${p//%20/ }"
+    if [ -d "\$p" ]; then
+        DIRS+=("\$p")
+    fi
+done
+if [ \${#DIRS[@]} -eq 0 ]; then
+    notify-send "exrtoprores" "No directories selected" 2>/dev/null || true
+    exit 1
+fi
+if [ \${#DIRS[@]} -eq 1 ]; then
+    cd "\${DIRS[0]}" && "$script_path" >/dev/null 2>&1 &
+else
+    PARENT="\$(dirname "\${DIRS[0]}")"
+    cd "\$PARENT" && "$script_path" "\${DIRS[@]}" >/dev/null 2>&1 &
+fi
+WRAPPER_EOF
+                exec_line="bash \"$wrapper_script\" %F"
+            elif [[ "$script_name" == *dailies* ]]; then
                 # Scripts like dailies.sh accept directory as argument
                 cat > "$wrapper_script" <<WRAPPER_EOF
 #!/bin/bash
