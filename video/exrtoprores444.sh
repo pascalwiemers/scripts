@@ -140,7 +140,7 @@ process_dir() {
       name=${f##*/}; base=${name%.exr}
       out="'"$tmpdir"'/${base}_converted.png"
 
-      oiiotool "$f" --ch "R,G,B,A" --colorconvert "ACES - ACEScg" "Output - sRGB" \
+      oiiotool "$f" --ch "R,G,B,A" --colorconvert "ACES - ACEScg" "Output - sRGB" --attrib oiio:UnassociatedAlpha 1 \
         --text:x=40:y=40:size=28 "Frame: ${frame:-N/A}   FPS: ${fps_tag:-'"$fps"'}" \
         --text:x=40:y=80:size=28  "RenderTime: ${rt_hms:-N/A}" \
         --text:x=40:y=120:size=28 "Software: ${software:-Unknown}" \
@@ -157,7 +157,7 @@ process_dir() {
     printf "%s\n" "${exrs[@]}" | sort -V | \
     "${PAR_CMD[@]}" '
       f={}; name=${f##*/}; base=${name%.exr}
-      oiiotool "$f" --ch "R,G,B,A" --colorconvert "ACES - ACEScg" "Output - sRGB" \
+      oiiotool "$f" --ch "R,G,B,A" --colorconvert "ACES - ACEScg" "Output - sRGB" --attrib oiio:UnassociatedAlpha 1 \
         -d uint16 -o "'"$tmpdir"'/""${base}_converted.png"
     '
   fi
