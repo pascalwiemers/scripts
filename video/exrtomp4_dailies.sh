@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # @kde - Can be deployed to Dolphin/KDE service menu
-# exrtomp4.sh – fast EXR → JPG → MP4 converter with metadata overlay by default
+# exrtomp4.sh – fast EXR → PNG → MP4 converter with metadata overlay by default
+
+# Locate the shared helper in the checkout or the Dolphin deployment.
+EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
+[[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
+source "$EXR_CHANNELS_LIB" || exit 1
 
 export LC_NUMERIC=C
 set -euo pipefail
@@ -94,8 +100,8 @@ printf -v total_rt_hms '%02d:%02d:%05.2f' \
         $(awk -v t="$total_rt_sec" 'BEGIN{h=int(t/3600); m=int((t%3600)/60); s=t%60; print h,m,s}')
 echo "⏱  Total render time: $total_rt_hms"
 
-# ──────────────────────── 5. EXR → JPG Conversion ────────────────────────
-echo "🎨 Converting EXRs to JPGs …"
+# ──────────────────────── 5. EXR → PNG Conversion ────────────────────────
+echo "🎨 Converting EXRs to PNGs …"
 cat "$tmpdir/metadata.txt" | sort -V | \
 parallel ${PARALLEL_JOBS:+-j "$PARALLEL_JOBS"} --colsep '\|' --halt soon,fail=1 --line-buffer '
   f={1}
@@ -104,7 +110,8 @@ parallel ${PARALLEL_JOBS:+-j "$PARALLEL_JOBS"} --colsep '\|' --halt soon,fail=1 
   mem={7}; comp={8}; colorspace={9}; rth={11};
   gpu_label={12}; gpu_pct={13}; cpu_label={14}; cpu_pct={15};
 
-  oiiotool "$f" --ch "R,G,B" \
+  CH_ARGS=$(exr_channel_args "$f" drop) || exit 1
+  oiiotool "$f" --ch "$CH_ARGS" \
     --colorconvert "ACES - ACEScg" "Output - sRGB" \
     --text:x=40:y=40:size=28 "Frame: ${frame:-N/A}   FPS: ${fps_tag:-'"$fps"'}" \
     --text:x=40:y=80:size=28  "RenderTime: ${rth:-N/A}" \
@@ -116,12 +123,12 @@ parallel ${PARALLEL_JOBS:+-j "$PARALLEL_JOBS"} --colsep '\|' --halt soon,fail=1 
     --text:x=40:y=320:size=28 "GPU: ${gpu_label:-N/A} (${gpu_pct:-0}%)" \
     --text:x=40:y=360:size=28 "CPU: ${cpu_label:-N/A} (${cpu_pct:-0}%)" \
     --text:x=40:y=400:size=28 "TotalRender: '"$total_rt_hms"'" \
-    -o "$tmpdir/${fb}_converted.jpg"
+    -d uint16 -o "$tmpdir/${fb}_converted.png"
 '
 
 # ───────────────────────── 6. Assemble MP4 ────────────────────────────────
 echo "📜  Preparing list for FFmpeg …"
-ls "$tmpdir"/*_converted.jpg | sort -V \
+ls "$tmpdir"/*_converted.png | sort -V \
   | sed "s|^|file '|;s|$|'|" > "$tmpdir/files.txt"
 
 out_base=$(basename "$first_exr" .exr | sed -E 's/\.[0-9]+$//')

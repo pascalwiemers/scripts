@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # @kde - Can be deployed to Dolphin/KDE service menu
-# exrtomp4.sh – fast EXR → JPG → MP4 converter with optional metadata overlay
+# exrtomp4.sh – fast EXR → PNG → MP4 converter with optional metadata overlay
+
+# Locate the shared helper in the checkout or the Dolphin deployment.
+EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
+[[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
+source "$EXR_CHANNELS_LIB" || exit 1
 
 export LC_NUMERIC=C
 set -euo pipefail
@@ -98,8 +104,8 @@ if $INCLUDE_META; then
   echo "⏱  Total render time: $total_rt_hms"
 fi
 
-# ──────────────────── 5. EXR → JPG Conversion ───────────────────────────
-echo "🎨 Converting EXRs to JPGs …"
+# ──────────────────── 5. EXR → PNG Conversion ───────────────────────────
+echo "🎨 Converting EXRs to PNGs …"
 if $INCLUDE_META; then
   cat "$tmpdir/metadata.txt" | sort -V | \
   parallel ${PARALLEL_JOBS:+-j "$PARALLEL_JOBS"} --colsep '\|' --halt soon,fail=1 --line-buffer '
@@ -109,7 +115,8 @@ if $INCLUDE_META; then
 
     fbase=${f#./}; fb=${fbase%.exr}
 
-    oiiotool "$f" --ch "R,G,B" \
+    CH_ARGS=$(exr_channel_args "$f" drop) || exit 1
+    oiiotool "$f" --ch "$CH_ARGS" \
       --colorconvert "ACES - ACEScg" "Output - sRGB" \
       --text:x=40:y=40:size=28 "Frame: ${frame:-N/A}   FPS: ${fps_tag:-'"$fps"'}" \
       --text:x=40:y=80:size=28  "RenderTime: ${rth:-N/A}" \
@@ -121,21 +128,22 @@ if $INCLUDE_META; then
       --text:x=40:y=320:size=28 "GPU: ${gpu_label:-N/A} (${gpu_pct:-0}%)" \
       --text:x=40:y=360:size=28 "CPU: ${cpu_label:-N/A} (${cpu_pct:-0}%)" \
       --text:x=40:y=400:size=28 "TotalRender: '"$total_rt_hms"'" \
-      -o "$tmpdir/${fb}_converted.jpg"
+      -d uint16 -o "$tmpdir/${fb}_converted.png"
   '
 else
   find . -maxdepth 1 -name '*.exr' | sort -V | \
   parallel ${PARALLEL_JOBS:+-j "$PARALLEL_JOBS"} --halt soon,fail=1 --line-buffer '
     f={}
     fbase=${f#./}; fb=${fbase%.exr}
-    oiiotool "$f" --ch "R,G,B" --colorconvert "ACES - ACEScg" "Output - sRGB" \
-      -o "$tmpdir/${fb}_converted.jpg"
+    CH_ARGS=$(exr_channel_args "$f" drop) || exit 1
+    oiiotool "$f" --ch "$CH_ARGS" --colorconvert "ACES - ACEScg" "Output - sRGB" \
+      -d uint16 -o "$tmpdir/${fb}_converted.png"
   '
 fi
 
 # ──────────────────────── 6. Assemble MP4 ────────────────────────────────
 echo "📜  Preparing list for FFmpeg …"
-ls "$tmpdir"/*_converted.jpg | sort -V \
+ls "$tmpdir"/*_converted.png | sort -V \
   | sed "s|^|file '|;s|$|'|" > "$tmpdir/files.txt"
 
 out_base=$(basename "$first_exr" .exr | sed -E 's/\.[0-9]+$//')

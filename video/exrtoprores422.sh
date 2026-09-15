@@ -7,6 +7,12 @@
 # Supports multiple folders: each folder is treated as its own sequence;
 # resulting .mov is placed in the original invocation directory.
 
+# Locate the shared helper in the checkout or the Dolphin deployment.
+EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
+[[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
+source "$EXR_CHANNELS_LIB" || exit 1
+
 export LC_NUMERIC=C
 set -euo pipefail
 
@@ -118,7 +124,7 @@ process_dir() {
         "$rt_sec" "$rt_hms" \
         "$gpu_label" "$gpu_pct" \
         "$cpu_label" "$cpu_pct"
-    ' > "$tmpdir/metadata.txt"
+    ' > "$tmpdir/metadata.txt" || { popd >/dev/null; return 1; }
 
     local total_rt_sec
     total_rt_sec=$(awk -F'|' '{sum+=$10} END{printf "%.4f",sum}' "$tmpdir/metadata.txt")
@@ -141,7 +147,8 @@ process_dir() {
       name=${f##*/}; base=${name%.exr}
       out="'"$tmpdir"'/${base}_converted.png"
 
-      oiiotool "$f" --ch "R,G,B" --colorconvert "ACES - ACEScg" "Output - sRGB" \
+      CH_ARGS=$(exr_channel_args "$f" drop) || exit 1
+      oiiotool "$f" --ch "$CH_ARGS" --colorconvert "ACES - ACEScg" "Output - sRGB" \
         --text:x=40:y=40:size=28 "Frame: ${frame:-N/A}   FPS: ${fps_tag:-'"$fps"'}" \
         --text:x=40:y=80:size=28  "RenderTime: ${rt_hms:-N/A}" \
         --text:x=40:y=120:size=28 "Software: ${software:-Unknown}" \
@@ -153,14 +160,15 @@ process_dir() {
         --text:x=40:y=360:size=28 "CPU: ${cpu_label:-N/A} (${cpu_pct:-0}%)" \
         --text:x=40:y=400:size=28 "TotalRender: '"$total_rt_hms"'" \
         -d uint16 -o "$out"
-    '
+    ' || { popd >/dev/null; return 1; }
   else
     printf "%s\n" "${exrs[@]}" | sort -V | \
     "${PAR_CMD[@]}" '
       f={}; name=${f##*/}; base=${name%.exr}
-      oiiotool "$f" --ch "R,G,B" --colorconvert "ACES - ACEScg" "Output - sRGB" \
+      CH_ARGS=$(exr_channel_args "$f" drop) || exit 1
+      oiiotool "$f" --ch "$CH_ARGS" --colorconvert "ACES - ACEScg" "Output - sRGB" \
         -d uint16 -o "'"$tmpdir"'/""${base}_converted.png"
-    '
+    ' || { popd >/dev/null; return 1; }
   fi
 
   pushd "$tmpdir" >/dev/null
@@ -191,7 +199,9 @@ process_dir() {
 
 overall_rc=0
 for d in "${DIRS[@]}"; do
-  if ! process_dir "$d"; then
+  if process_dir "$d"; then
+    :
+  else
     rc=$?
     (( rc > overall_rc )) && overall_rc=$rc
   fi

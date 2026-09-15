@@ -3,6 +3,12 @@
 # Convert EXR → JPG. If no inputs, process all *.exr in current directory.
 # -folder → place converted JPGs into ./jpg/
 
+# Locate the shared helper in the checkout or the Dolphin deployment.
+EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
+[[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
+source "$EXR_CHANNELS_LIB" || exit 1
+
 USE_FOLDER=0
 
 # Parse -folder flag
@@ -42,7 +48,8 @@ xargs -0 -n 1 -P "$JOBS" bash -c '
         OUT="jpg/$(basename "$OUT")"
     fi
 
-    if oiiotool "$INPUT" --colorconvert "role_scene_linear" "out_srgb" -o "$OUT"; then
+    CH_ARGS=$(exr_channel_args "$INPUT" drop) || exit 1
+    if oiiotool "$INPUT" --ch "$CH_ARGS" --colorconvert "ACES - ACEScg" "Output - sRGB" -d uint8 -o "$OUT"; then
         echo "$INPUT → $OUT"
     else
         echo "Error on $INPUT"

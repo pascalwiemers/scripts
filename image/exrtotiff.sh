@@ -7,6 +7,12 @@
 #   ./convert_exr_to_tiff.sh *.exr
 #   ./convert_exr_to_tiff.sh -folder  (outputs into ./tiff/)
 
+# Locate the shared helper in the checkout or the Dolphin deployment.
+EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
+[[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
+source "$EXR_CHANNELS_LIB" || exit 1
+
 shopt -s nullglob
 
 USE_FOLDER=0
@@ -50,10 +56,12 @@ xargs -0 -n 1 -P "$JOBS" bash -c '
     fi
 
     echo "Converting $INPUT → $OUTPUT ..."
-    if oiiotool "$INPUT" --colorconvert "role_scene_linear" "out_srgb" -o "$OUTPUT"; then
+    CH_ARGS=$(exr_channel_args "$INPUT" keep) || exit 1
+    if oiiotool "$INPUT" --ch "$CH_ARGS" --colorconvert "ACES - ACEScg" "Output - sRGB" -d uint16 -o "$OUTPUT"; then
         echo "✅ $INPUT"
     else
         echo "❌ Error converting $INPUT"
+        exit 1
     fi
 ' _
 

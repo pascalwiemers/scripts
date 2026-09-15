@@ -32,7 +32,7 @@ xargs -0 -n 1 -P "$JOBS" bash -c '
 
     BASE="$(basename "${INPUT%.exr}")"
 
-    INFO=$(oiiotool -a --info -v "$INPUT" 2>&1)
+    INFO=$(oiiotool -a --info -v "$INPUT") || exit 1
     SUBIMAGES=$(printf "%s\n" "$INFO" | grep -oP "oiio:subimages:\s*\K[0-9]+" | head -1)
     SUBIMAGES=${SUBIMAGES:-1}
 
@@ -59,10 +59,31 @@ xargs -0 -n 1 -P "$JOBS" bash -c '
             [ -z "$NAME" ] && NAME="part$i"
             NAME=$(sanitize "$NAME")
             OUT="layers/${BASE}_${NAME}.exr"
-            if oiiotool "$INPUT" --subimage "$i" -o "$OUT" 2>/dev/null; then
+            # Multipart AOVs may still have layer-prefixed channel names.
+            # Strip RGBA prefixes only when the resulting names are unique;
+            # preserve data channels and parts containing multiple RGB layers.
+            CHANLINE=$(printf "%s\n" "$SUB_INFO" | sed -n "s/.*channel list: *//p" | head -1)
+            IFS="," read -ra CHANS <<< "${CHANLINE// /}"
+            RENAMED=()
+            declare -A SEEN=()
+            UNIQUE=1
+            for ch in "${CHANS[@]}"; do
+                case "${ch##*.}" in
+                    R|G|B|A) ch="${ch##*.}" ;;
+                esac
+                [[ -n "${SEEN[$ch]+x}" ]] && UNIQUE=0
+                SEEN[$ch]=1
+                RENAMED+=("$ch")
+            done
+            CH_OPTS=()
+            if [ "$UNIQUE" -eq 1 ] && [ "${#RENAMED[@]}" -gt 0 ]; then
+                CH_OPTS=(--chnames "$(IFS=,; echo "${RENAMED[*]}")")
+            fi
+            if oiiotool "$INPUT" --subimage "$i" "${CH_OPTS[@]}" -o "$OUT"; then
                 echo "$INPUT [subimage $i: $NAME] -> $OUT"
             else
                 echo "Error: subimage $i of $INPUT"
+                exit 1
             fi
         done
     else
@@ -120,10 +141,11 @@ xargs -0 -n 1 -P "$JOBS" bash -c '
             fi
             SAFENAME=$(sanitize "$prefix")
             OUT="layers/${BASE}_${SAFENAME}.exr"
-            if oiiotool "$INPUT" --ch "$CH_ARGS" -o "$OUT" 2>/dev/null; then
+            if oiiotool "$INPUT" --ch "$CH_ARGS" -o "$OUT"; then
                 echo "$INPUT [$prefix] -> $OUT"
             else
                 echo "Error: layer $prefix of $INPUT (channels: $CH_ARGS)"
+                exit 1
             fi
         done
     fi

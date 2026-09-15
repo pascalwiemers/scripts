@@ -19,6 +19,10 @@ find "$TARGET_BASE" -maxdepth 1 -type f -name "*.desktop" -delete
 
 mkdir -p "$TARGET_BASE"
 
+# Shared support library for the EXR converters (no service-menu entry).
+mkdir -p "$TARGET_BASE/lib"
+cp "$SOURCE_DIR/lib/exr_channels.sh" "$TARGET_BASE/lib/exr_channels.sh" || exit 1
+
 # Scripts that must stay together in root due to interdependencies
 KEEP_IN_ROOT=(
   dailies.sh
@@ -75,7 +79,7 @@ get_service_types() {
         # File-based scripts - use specific MIME types
         case "$name" in
             # EXR-specific scripts - only for EXR files
-            *exrtojpg*|*exrtopng*|*exrtotiff*|*exrmerge*|*exrarchive*)
+            *exrtojpg*|*exrtopng*|*exrtotiff*|*exrtowebp*|*exrmerge*|*exrarchive*)
                 echo "image/x-exr" ;;
             
             # Video conversion scripts - only for video files
@@ -141,7 +145,7 @@ get_mime_type_patterns() {
     # Add specific MIME type patterns for better file type matching
     case "$name" in
         # EXR-specific scripts
-        *exrtojpg*|*exrtopng*|*exrtotiff*|*exrmerge*|*exrarchive*)
+        *exrtojpg*|*exrtopng*|*exrtotiff*|*exrtowebp*|*exrmerge*|*exrarchive*)
             echo "MimeType=image/x-exr;"
             ;;
         # Video formats
@@ -405,7 +409,7 @@ WRAPPER_EOF
         # Determine extra flags (e.g. -folder for exr conversion scripts)
         local extra_flags=""
         case "$script_name" in
-            exrtojpg.sh|exrtopng.sh|exrtotiff.sh) extra_flags="-folder" ;;
+            exrtojpg.sh|exrtopng.sh|exrtotiff.sh|exrtowebp.sh) extra_flags="-folder" ;;
         esac
         cat > "$wrapper_script" <<WRAPPER_EOF
 #!/bin/bash

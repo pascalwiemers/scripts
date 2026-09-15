@@ -26,6 +26,12 @@
 #   make_wild_view_psd.sh              # uses $PWD
 #   make_wild_view_psd.sh /path/to/WILD_27_v27_back
 
+# Locate the shared helper in the checkout or the Dolphin deployment.
+EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
+[[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
+source "$EXR_CHANNELS_LIB" || exit 1
+
 set -euo pipefail
 shopt -s nullglob
 
@@ -47,7 +53,8 @@ find "$TARGET" -type f -iname '*.exr' -not -iname '*_part.exr' -print0 | \
       exit 0
     fi
     echo "convert: $in"
-    if ! oiiotool "$in" --colorconvert role_scene_linear out_srgb -o "$out"; then
+    CH_ARGS=$(exr_channel_args "$in" keep) || exit 1
+    if ! oiiotool "$in" --ch "$CH_ARGS" --colorconvert "ACES - ACEScg" "Output - sRGB" -d uint16 -o "$out"; then
       echo "ERROR converting: $in" >&2
       exit 1
     fi
