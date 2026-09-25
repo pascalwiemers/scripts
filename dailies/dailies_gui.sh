@@ -44,7 +44,7 @@ if [[ -n "${DISPLAY:-}" ]] && command -v yad &>/dev/null; then
         --title="EXR → Video" \
         --text="Choose options:" \
         --field="Script:CB" "exrtomp4.sh!exrtoprores422.sh!exrtoavc.sh!exrtodnx.sh" \
-        --field="FPS" "25" \
+        --field="FPS override (blank = EXR metadata, fallback 30)" "" \
         --field="Metadata:CHK" FALSE \
         --field="Verbose (-v):CHK" FALSE \
         --field="Overwrite (-f):CHK" FALSE \
@@ -62,7 +62,7 @@ if [[ -n "${DISPLAY:-}" ]] && command -v yad &>/dev/null; then
     elif [[ "$SCRIPT_NAME" != "exrtomp4.sh" ]]; then
         ARGS+=("-script" "$SCRIPT_NAME")
     fi
-    ARGS+=("-fps" "$FPS")
+    [[ -z "$FPS" ]] || ARGS+=("-fps" "$FPS")
     [[ "$META"   == "TRUE" ]] && ARGS+=("-meta")
     [[ "$V_FLAG" == "TRUE" ]] && ARGS+=("-v")
     [[ "$F_FLAG" == "TRUE" ]] && ARGS+=("-f")

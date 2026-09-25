@@ -71,6 +71,14 @@ Scripts are grouped roughly by purpose. Most of them are self-contained shell ut
   Example: `exrtomp4 -fps 30 -res 1080x1080`
 - **exrtoprores422.sh** – convert an EXR sequence to ProRes 422.
 - **exrtoprores444.sh** – convert an EXR sequence to ProRes 444.
+  All EXR video converters, including `exrtomp4_dailies.sh`, use the first
+  EXR's `FramesPerSecond` metadata (including fractional rates such as
+  `30000/1001`). Missing or invalid metadata falls back to **30 fps**.
+  An explicit `-fps` overrides detection; `~/.video_fps_config` is no longer
+  used by these converters. Leave the batch/dailies GUI FPS field blank for
+  automatic detection. Each folder in a ProRes batch is detected separately.
+  PNG intermediates are naturally sorted and linked into a numbered sequence
+  for FFmpeg's parallel image decoding, preserving one video frame per EXR.
 - **movtoexr.sh** – turn a video file into a DWAB-compressed EXR sequence.
 - **mkv_mov.sh** – convert MKV into a ProRes 422 MOV file.
 - **mp4.sh / mp4hq.sh** – convert videos to MP4 (standard / high quality).

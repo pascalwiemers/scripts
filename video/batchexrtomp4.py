@@ -5,6 +5,7 @@ import tkinter.ttk as ttk
 import subprocess
 import os
 import configparser
+from fractions import Fraction
 
 # --- Configuration handling ---
 CONFIG_FILE = os.path.expanduser("~/.batch_tk_config.ini")
@@ -69,7 +70,7 @@ def run_processing():
     input_folders = list(input_listbox.get(0, tk.END))
     output_folder = output_entry.get()
     script_loc = script_entry.get()
-    fps_value = fps_entry.get()
+    fps_value = fps_entry.get().strip()
 
     # Validate inputs
     if not input_folders:
@@ -82,11 +83,17 @@ def run_processing():
         messagebox.showerror("Error", "Script location is not a valid directory!")
         return
 
-    # Validate FPS input
-    try:
-        fps_int = int(fps_value)
-    except ValueError:
-        fps_int = 25
+    # Blank uses each sequence's EXR metadata, falling back to 30 fps.
+    fps_args = []
+    if fps_value:
+        try:
+            fps_rate = Fraction(fps_value)
+            if fps_rate <= 0:
+                raise ValueError
+        except (ValueError, ZeroDivisionError):
+            messagebox.showerror("Error", "FPS must be positive, or blank for automatic detection.")
+            return
+        fps_args = ["-fps", str(fps_rate)]
 
     # Build a list of commands based on selected checkboxes.
     commands = []
@@ -111,10 +118,9 @@ def run_processing():
     for folder in input_folders:
         for cmd in commands:
             full_cmd = os.path.join(script_loc, cmd)
-            # Append the -fps flag
-            full_cmd_with_fps = f"{full_cmd} -fps {fps_int}"
+            full_cmd_with_fps = [full_cmd, *fps_args]
             try:
-                result = subprocess.run(full_cmd_with_fps, shell=True, cwd=folder,
+                result = subprocess.run(full_cmd_with_fps, cwd=folder,
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
                                         text=True)
@@ -202,10 +208,9 @@ tk.Checkbutton(frame_command, text="exrtoprores422.sh", variable=prores422_var).
 # FPS Input
 frame_fps = tk.Frame(root)
 frame_fps.pack(padx=10, pady=5, fill=tk.X)
-tk.Label(frame_fps, text="FPS:").pack(side=tk.LEFT)
+tk.Label(frame_fps, text="FPS override (blank = EXR metadata, fallback 30):").pack(side=tk.LEFT)
 fps_entry = tk.Entry(frame_fps, width=10)
 fps_entry.pack(side=tk.LEFT, padx=5)
-fps_entry.insert(0, "25")
 
 # Output Folder Selection
 frame_output = tk.Frame(root)

@@ -49,7 +49,7 @@ show_usage() {
     echo ""
     echo "OPTIONS:"
     echo "  -script <name>   Use specific conversion script (default: $DEFAULT_CONVERSION_SCRIPT)"
-    echo "  -fps <number>    Set frame rate (default: 25)"
+    echo "  -fps <number>    Override EXR frame rate (default: metadata, fallback 30)"
     echo "  -res <WxH>       Set resolution (default: auto-detect)"
     echo "  -j <number>      Set parallel jobs"
     echo "  -meta            Include metadata overlay"

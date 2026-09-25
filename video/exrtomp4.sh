@@ -7,22 +7,13 @@ EXR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/../lib/exr_channels.sh"
 [[ -f "$EXR_CHANNELS_LIB" ]] || EXR_CHANNELS_LIB="$EXR_SCRIPT_DIR/lib/exr_channels.sh"
 source "$EXR_CHANNELS_LIB" || exit 1
+source "$(dirname "$EXR_CHANNELS_LIB")/exr_video.sh" || exit 1
 
 export LC_NUMERIC=C
 set -euo pipefail
 
 PARALLEL_JOBS=""
-DEFAULT_FPS=25
 INCLUDE_META=false
-
-# Read global FPS config if available
-CONFIG_FILE="$HOME/.video_fps_config"
-if [ -f "$CONFIG_FILE" ]; then
-    config_fps=$(cat "$CONFIG_FILE" 2>/dev/null | grep -E '^[0-9]+(\.[0-9]+)?$' | head -n1)
-    if [ -n "$config_fps" ]; then
-        DEFAULT_FPS=$config_fps
-    fi
-fi
 
 echo "🟢  Starting EXR-to-MP4 script …"
 
@@ -32,10 +23,12 @@ command -v oiiotool  >/dev/null || { echo "oiiotool not found";  exit 1; }
 command -v ffmpeg    >/dev/null || { echo "ffmpeg not found";    exit 1; }
 command -v identify  >/dev/null || { echo "identify not found";  exit 1; }
 
-fps=$DEFAULT_FPS
+fps_override=""
 while (( $# )); do
   case "$1" in
-    -fps)  fps="$2"; shift 2 ;;
+    -fps)
+      exr_valid_fps "${2:-}" || { echo "-fps requires a positive number or fraction" >&2; exit 1; }
+      fps_override="$2"; shift 2 ;;
     -res)  res="$2"; shift 2 ;;
     -j)    PARALLEL_JOBS="$2"; shift 2 ;;
     -meta) INCLUDE_META=true; shift ;;
@@ -50,6 +43,7 @@ exrs=( *.exr )
 (( ${#exrs[@]} )) || { echo "No EXR files found. Exiting."; exit 1; }
 
 first_exr="${exrs[0]}"
+fps=$(exr_video_fps "$first_exr" "$fps_override")
 res=$(identify -format "%wx%h" "$first_exr")
 width=${res%x*}; height=${res#*x}
 (( width  & 1 )) && ((width--))
@@ -142,16 +136,16 @@ else
 fi
 
 # ──────────────────────── 6. Assemble MP4 ────────────────────────────────
-echo "📜  Preparing list for FFmpeg …"
-ls "$tmpdir"/*_converted.png | sort -V \
-  | sed "s|^|file '|;s|$|'|" > "$tmpdir/files.txt"
+echo "📜  Preparing image sequence for FFmpeg …"
+exr_video_link_frames "$tmpdir"
 
 out_base=$(basename "$first_exr" .exr | sed -E 's/\.[0-9]+$//')
 out_mp4="${out_base}.mp4"
 
 echo "🎞  Encoding MP4 → $out_mp4"
-ffmpeg -y -loglevel error -f concat -safe 0 -i "$tmpdir/files.txt" \
-       -c:v libx264 -pix_fmt yuv420p -r "$fps" -s "$res" \
+# Read numbered PNGs directly for parallel decoding and exact frame timing.
+ffmpeg -y -loglevel error -framerate "$fps" -start_number 0 -i "$tmpdir/frames/%08d.png" \
+       -c:v libx264 -pix_fmt yuv420p -fps_mode passthrough -s "$res" \
        "$tmpdir/$out_mp4"
 
 # ───────────────────────── 7. Cleanup ────────────────────────────────────
@@ -159,4 +153,3 @@ mv "$tmpdir/$out_mp4" .
 rm -rf "$tmpdir"
 
 echo "✅  Done – output is $out_mp4"
-

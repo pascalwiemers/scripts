@@ -22,6 +22,7 @@ mkdir -p "$TARGET_BASE"
 # Shared support library for the EXR converters (no service-menu entry).
 mkdir -p "$TARGET_BASE/lib"
 cp "$SOURCE_DIR/lib/exr_channels.sh" "$TARGET_BASE/lib/exr_channels.sh" || exit 1
+cp "$SOURCE_DIR/lib/exr_video.sh" "$TARGET_BASE/lib/exr_video.sh" || exit 1
 
 # Scripts that must stay together in root due to interdependencies
 KEEP_IN_ROOT=(
